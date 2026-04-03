@@ -1,0 +1,32 @@
+import ArgumentParser
+import Foundation
+
+@main
+struct AII: AsyncParsableCommand {
+    static var configuration = CommandConfiguration(
+        commandName: "aii",
+        abstract: "Apple Intelligence Interface — on-device LLM",
+        version: "0.6.0"
+    )
+
+    @Argument(help: "Prompt (one-shot), or system prompt when used with --interactive")
+    var prompt: String?
+
+    @Flag(name: [.short, .long], help: "Start interactive conversational mode")
+    var interactive: Bool = false
+
+    @Option(name: [.short, .long], help: "File to attach as context (one-shot only)")
+    var file: String?
+
+    mutating func run() async throws {
+        ModelBridge.checkAvailability()
+
+        if interactive {
+            await Interactive.run(systemPrompt: prompt)
+        } else if let prompt {
+            await OneShot.run(prompt: prompt, filePath: file)
+        } else {
+            print(AII.helpMessage())
+        }
+    }
+}
