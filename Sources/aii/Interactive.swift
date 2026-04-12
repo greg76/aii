@@ -38,6 +38,7 @@ enum Interactive {
             // generate response
             var buffer = ""
             var lastContentCount = 0
+            let detector = RepetitionDetector()
             do {
                 let stream = session.streamResponse(to: input)
                 for try await partial in stream {
@@ -46,7 +47,10 @@ enum Interactive {
                         let startIndex = currentContent.index(
                             currentContent.startIndex, offsetBy: lastContentCount)
                         let delta = String(currentContent[startIndex...])
-                        ModelBridge.writeBuffered(delta, buffer: &buffer)
+                        if ModelBridge.writeBuffered(delta, buffer: &buffer, detector: detector) {
+                            ModelBridge.getRepetitionError().report()
+                            break
+                        }
                         lastContentCount = currentContent.count
                     }
                 }

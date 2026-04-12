@@ -54,14 +54,32 @@ enum ModelBridge {
         return "\(prompt)\n\n--- CONTENT ---\n\(content)\n--- END CONTENT ---"
     }
 
-    static func writeBuffered(_ text: String, buffer: inout String) {
+    static func writeBuffered(_ text: String, buffer: inout String, detector: RepetitionDetector? = nil) -> Bool {
         buffer += text
-        let shouldFlush = buffer.contains("\n") || buffer.utf8.count >= 128
+        let hasNewline = buffer.contains("\n")
+        let shouldFlush = hasNewline || buffer.utf8.count >= 128
+        
+        var detectedRepetition = false
+        if hasNewline, let detector {
+            let lines = buffer.split(separator: "\n", omittingEmptySubsequences: false)
+            // We only check complete lines (those followed by a newline)
+            // If the buffer ends with a newline, the last element of split is actually the last line.
+            // If it doesn't, the last element is an incomplete line and should not be checked yet.
+            let completeLines = buffer.hasSuffix("\n") ? lines : lines.dropLast()
+            for line in completeLines {
+                if detector.isRepeating(newLine: String(line)) {
+                    detectedRepetition = true
+                    break
+                }
+            }
+        }
+
         if shouldFlush {
             FileHandle.standardOutput.write(Data(buffer.utf8))
             FileHandle.standardOutput.synchronizeFile()
             buffer = ""
         }
+        return detectedRepetition
     }
 
     static func flushBuffer(_ buffer: inout String) {
@@ -98,7 +116,7 @@ enum ModelBridge {
         } else if errorStr.contains("exceedsContextWindowSize") {
             return AIIError(
                 error: AIIError.Codes.contextExceeded,
-                message: "Exceeds 4,096 token context window",
+                message: "Exceeds 4,096 token context window\ntry a shorter input or use /new to reset",
                 detail: errorStr,
                 exitCode: 4
             )
@@ -116,5 +134,34 @@ enum ModelBridge {
             detail: errorStr,
             exitCode: 1
         )
+    }
+
+    static func getRepetitionError() -> AIIError {
+        return AIIError(
+            error: AIIError.Codes.contextExceeded,
+            message: "Response appears to be repeating — context window likely exceeded\ntry a shorter input or use /new to reset",
+            detail: "Detected repeating lines in output",
+            exitCode: 4
+        )
+    }
+}
+
+class RepetitionDetector {
+    private var recentLines: [String] = []
+    private let maxLines = 20
+
+    func isRepeating(newLine: String) -> Bool {
+        let trimmed = newLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        
+        if recentLines.contains(trimmed) {
+            return true
+        }
+        
+        recentLines.append(trimmed)
+        if recentLines.count > maxLines {
+            recentLines.removeFirst()
+        }
+        return false
     }
 }

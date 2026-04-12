@@ -293,7 +293,7 @@ Used in `--json` mode and as the basis for plain text messages in default mode.
 | `assets_unavailable` | `GenerationError.assetsUnavailable` | Model assets became unavailable mid-session |
 | `guardrail_violation` | `GenerationError.guardrailViolation` | Prompt blocked by safety filters |
 | `unsupported_language` | `GenerationError.unsupportedLanguageOrLocale` | Prompt language not supported |
-| `context_exceeded` | `GenerationError.exceedsContextWindowSize` | Exceeds 4,096 token context window |
+| `context_exceeded` | `GenerationError.exceedsContextWindowSize` | Exceeds 4,096 token context window or detected output looping |
 | `rate_limited` | `GenerationError.rateLimited` | Model busy, try again |
 
 #### Input errors — exit code 2

@@ -36,6 +36,7 @@ enum OneShot {
         let session = ModelBridge.makeSession(systemPrompt: nil)
         var buffer = ""
         var lastContentCount = 0
+        let detector = RepetitionDetector()
 
         let finalPrompt: String
         if let content {
@@ -61,7 +62,9 @@ enum OneShot {
                     let startIndex = currentContent.index(
                         currentContent.startIndex, offsetBy: lastContentCount)
                     let delta = String(currentContent[startIndex...])
-                    ModelBridge.writeBuffered(delta, buffer: &buffer)
+                    if ModelBridge.writeBuffered(delta, buffer: &buffer, detector: detector) {
+                        ModelBridge.getRepetitionError().fatal()
+                    }
                     lastContentCount = currentContent.count
                 }
             }
