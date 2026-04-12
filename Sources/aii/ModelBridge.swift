@@ -18,14 +18,16 @@ enum ModelBridge {
             } else if reasonStr.contains("appleIntelligenceNotEnabled") {
                 AIIError(
                     error: AIIError.Codes.unavailableNotEnabled,
-                    message: "Apple Intelligence is not enabled\nenable it in System Settings → Apple Intelligence & Siri",
+                    message:
+                        "Apple Intelligence is not enabled\nenable it in System Settings → Apple Intelligence & Siri",
                     detail: reasonStr,
                     exitCode: 3
                 ).fatal()
             } else if reasonStr.contains("modelAssetsNotReady") {
                 AIIError(
                     error: AIIError.Codes.unavailableDownloading,
-                    message: "Apple Intelligence model assets are still downloading\ntry again shortly",
+                    message:
+                        "Apple Intelligence model assets are still downloading\ntry again shortly",
                     detail: reasonStr,
                     exitCode: 3
                 ).fatal()
@@ -54,32 +56,26 @@ enum ModelBridge {
         return "\(prompt)\n\n--- CONTENT ---\n\(content)\n--- END CONTENT ---"
     }
 
-    static func writeBuffered(_ text: String, buffer: inout String, detector: RepetitionDetector? = nil) -> Bool {
+    static func writeBuffered(
+        _ text: String, buffer: inout String, detector: RepetitionDetector? = nil
+    ) -> Bool {
         buffer += text
-        let hasNewline = buffer.contains("\n")
-        let shouldFlush = hasNewline || buffer.utf8.count >= 128
-        
-        var detectedRepetition = false
-        if hasNewline, let detector {
-            let lines = buffer.split(separator: "\n", omittingEmptySubsequences: false)
-            // We only check complete lines (those followed by a newline)
-            // If the buffer ends with a newline, the last element of split is actually the last line.
-            // If it doesn't, the last element is an incomplete line and should not be checked yet.
-            let completeLines = buffer.hasSuffix("\n") ? lines : lines.dropLast()
-            for line in completeLines {
-                if detector.isRepeating(newLine: String(line)) {
-                    detectedRepetition = true
-                    break
-                }
-            }
-        }
 
+        let detected = detector?.detectRepetition(in: text) ?? false
+
+        let shouldFlush = detected || buffer.contains("\n") || buffer.utf8.count >= 128
         if shouldFlush {
             FileHandle.standardOutput.write(Data(buffer.utf8))
             FileHandle.standardOutput.synchronizeFile()
             buffer = ""
         }
-        return detectedRepetition
+
+        if detected {
+            FileHandle.standardOutput.write(Data("...\n".utf8))
+            FileHandle.standardOutput.synchronizeFile()
+        }
+
+        return detected
     }
 
     static func flushBuffer(_ buffer: inout String) {
@@ -116,11 +112,13 @@ enum ModelBridge {
         } else if errorStr.contains("exceedsContextWindowSize") {
             return AIIError(
                 error: AIIError.Codes.contextExceeded,
-                message: "Exceeds 4,096 token context window\ntry a shorter input or use /new to reset",
+                message:
+                    "Exceeds 4,096 token context window\ntry a shorter input or use /new to reset context in interactive mode",
                 detail: errorStr,
                 exitCode: 4
             )
-        } else if errorStr.contains("rateLimited") {
+        }
+ else if errorStr.contains("rateLimited") {
             return AIIError(
                 error: AIIError.Codes.rateLimited,
                 message: "Model busy, try again",
@@ -139,7 +137,8 @@ enum ModelBridge {
     static func getRepetitionError() -> AIIError {
         return AIIError(
             error: AIIError.Codes.contextExceeded,
-            message: "Response appears to be repeating — context window likely exceeded\ntry a shorter input or use /new to reset",
+            message:
+                "Response appears to be repeating — context window likely exceeded\ntry a shorter input, limit expected response length or use /new to reset in interactive mode",
             detail: "Detected repeating lines in output",
             exitCode: 4
         )
@@ -147,21 +146,60 @@ enum ModelBridge {
 }
 
 class RepetitionDetector {
-    private var recentLines: [String] = []
+    private var recentFingerprints: [String] = []
     private let maxLines = 20
+    private var currentLine = ""
 
-    func isRepeating(newLine: String) -> Bool {
-        let trimmed = newLine.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        
-        if recentLines.contains(trimmed) {
-            return true
+    func detectRepetition(in text: String) -> Bool {
+        var detected = false
+        for char in text {
+            currentLine.append(char)
+            
+            if char == "\n" {
+                let trimmed = currentLine.trimmingCharacters(in: .whitespacesAndNewlines)
+                currentLine = ""
+                
+                // Only register lines that are long enough to be meaningful repeats
+                if trimmed.count >= 40 {
+                    let fp = getFingerprint(for: trimmed)
+                    if !recentFingerprints.contains(fp) {
+                        recentFingerprints.append(fp)
+                        if recentFingerprints.count > maxLines {
+                            recentFingerprints.removeFirst()
+                        }
+                    }
+                }
+            } else if currentLine.count >= 40 {
+                // Proactively check for repetition even before the newline.
+                // This ensures we see at least 40 characters of the repeating line.
+                let fp = getFingerprint(for: currentLine)
+                if recentFingerprints.contains(fp) {
+                    detected = true
+                    break
+                }
+            }
         }
-        
-        recentLines.append(trimmed)
-        if recentLines.count > maxLines {
-            recentLines.removeFirst()
+        return detected
+    }
+
+    private func getFingerprint(for line: String) -> String {
+        let chars = Array(line)
+        var endPos = chars.count
+        let punctuation: Set<Character> = [".", "?", "!"]
+
+        for i in 0..<chars.count {
+            if punctuation.contains(chars[i]) {
+                // Check if it's followed by whitespace or is the end of the string
+                if i + 1 == chars.count || chars[i + 1].isWhitespace {
+                    endPos = i + 1
+                    break
+                }
+            }
         }
-        return false
+
+        // At least 40, at most 60
+        let length = min(max(40, endPos), 60)
+        let safeLength = min(length, chars.count)
+        return String(chars.prefix(safeLength))
     }
 }
