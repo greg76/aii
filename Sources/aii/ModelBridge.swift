@@ -11,28 +11,30 @@ enum ModelBridge {
             if reasonStr.contains("deviceNotEligible") {
                 AIIError(
                     error: AIIError.Codes.unavailableNotSupported,
-                    message: "This device does not support Apple Intelligence.",
-                    detail: reasonStr
+                    message: "This device does not support Apple Intelligence",
+                    detail: reasonStr,
+                    exitCode: 3
                 ).fatal()
             } else if reasonStr.contains("appleIntelligenceNotEnabled") {
                 AIIError(
                     error: AIIError.Codes.unavailableNotEnabled,
-                    message:
-                        "Apple Intelligence is not enabled. Enable it in System Settings → Apple Intelligence & Siri.",
-                    detail: reasonStr
+                    message: "Apple Intelligence is not enabled\nenable it in System Settings → Apple Intelligence & Siri",
+                    detail: reasonStr,
+                    exitCode: 3
                 ).fatal()
             } else if reasonStr.contains("modelAssetsNotReady") {
                 AIIError(
                     error: AIIError.Codes.unavailableDownloading,
-                    message:
-                        "Apple Intelligence model assets are still downloading. Try again shortly.",
-                    detail: reasonStr
+                    message: "Apple Intelligence model assets are still downloading\ntry again shortly",
+                    detail: reasonStr,
+                    exitCode: 3
                 ).fatal()
             } else {
                 AIIError(
                     error: AIIError.Codes.internalError,
-                    message: "Apple Intelligence is unavailable for an unknown reason.",
-                    detail: reasonStr
+                    message: "Apple Intelligence is unavailable for an unknown reason",
+                    detail: reasonStr,
+                    exitCode: 1
                 ).fatal()
             }
         }
@@ -70,37 +72,49 @@ enum ModelBridge {
         }
     }
 
-    static func mapGenerationError(_ error: Error) -> Never {
+    static func getGenerationError(_ error: Error) -> AIIError {
         let errorStr = String(describing: error)
         if errorStr.contains("assetsUnavailable") {
-            AIIError(
+            return AIIError(
                 error: AIIError.Codes.assetsUnavailable,
-                message: "Model assets became unavailable mid-session.", detail: errorStr
-            ).fatal()
+                message: "Model assets became unavailable mid-session",
+                detail: errorStr,
+                exitCode: 4
+            )
         } else if errorStr.contains("guardrailViolation") {
-            AIIError(
+            return AIIError(
                 error: AIIError.Codes.guardrailViolation,
-                message: "Prompt blocked by safety filters.", detail: errorStr
-            ).fatal()
+                message: "Prompt blocked by safety filters",
+                detail: errorStr,
+                exitCode: 4
+            )
         } else if errorStr.contains("unsupportedLanguageOrLocale") {
-            AIIError(
+            return AIIError(
                 error: AIIError.Codes.unsupportedLanguage,
-                message: "Prompt language not supported.", detail: errorStr
-            ).fatal()
+                message: "Prompt language not supported",
+                detail: errorStr,
+                exitCode: 4
+            )
         } else if errorStr.contains("exceedsContextWindowSize") {
-            AIIError(
+            return AIIError(
                 error: AIIError.Codes.contextExceeded,
-                message: "Exceeds 4,096 token context window.", detail: errorStr
-            ).fatal()
+                message: "Exceeds 4,096 token context window\nuse /new to start a fresh conversation",
+                detail: errorStr,
+                exitCode: 4
+            )
         } else if errorStr.contains("rateLimited") {
-            AIIError(
-                error: AIIError.Codes.rateLimited, message: "Model busy, try again.",
-                detail: errorStr
-            ).fatal()
+            return AIIError(
+                error: AIIError.Codes.rateLimited,
+                message: "Model busy, try again",
+                detail: errorStr,
+                exitCode: 4
+            )
         }
-        AIIError(
-            error: AIIError.Codes.internalError, message: error.localizedDescription,
-            detail: errorStr
-        ).fatal()
+        return AIIError(
+            error: AIIError.Codes.internalError,
+            message: error.localizedDescription,
+            detail: errorStr,
+            exitCode: 1
+        )
     }
 }

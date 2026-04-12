@@ -4,6 +4,9 @@ struct AIIError: Codable {
     let error: String
     let message: String
     let detail: String?
+    let exitCode: Int
+
+    static var jsonMode: Bool = false
 
     enum Codes {
         static let unavailableNotSupported = "unavailable_not_supported"
@@ -19,13 +22,23 @@ struct AIIError: Codable {
         static let internalError = "internal_error"
     }
 
-    func fatal() -> Never {
-        let encoder = JSONEncoder()
-        if let data = try? encoder.encode(self),
-            let json = String(data: data, encoding: .utf8)
-        {
-            fputs(json + "\n", stderr)
+    func report() {
+        if AIIError.jsonMode {
+            let encoder = JSONEncoder()
+            if let data = try? encoder.encode(self),
+                let json = String(data: data, encoding: .utf8)
+            {
+                fputs(json + "\n", stderr)
+            }
+        } else {
+            for line in message.split(separator: "\n") {
+                fputs("aii: \(line)\n", stderr)
+            }
         }
-        exit(1)
+    }
+
+    func fatal() -> Never {
+        report()
+        exit(Int32(exitCode))
     }
 }

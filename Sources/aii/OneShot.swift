@@ -10,8 +10,9 @@ enum OneShot {
         if filePath != nil && isPiped {
             AIIError(
                 error: AIIError.Codes.conflictingInput,
-                message: "Cannot use both --file and piped stdin. Use one or the other.",
-                detail: nil
+                message: "Cannot use both --file and piped stdin. Use one or the other",
+                detail: nil,
+                exitCode: 2
             ).fatal()
         }
 
@@ -22,7 +23,8 @@ enum OneShot {
                 AIIError(
                     error: AIIError.Codes.fileNotFound,
                     message: "Cannot read file: \(path)",
-                    detail: nil
+                    detail: nil,
+                    exitCode: 2
                 ).fatal()
             }
             content = text
@@ -52,7 +54,7 @@ enum OneShot {
             ModelBridge.flushBuffer(&buffer)
             print()  // Newline after completion
         } catch {
-            ModelBridge.mapGenerationError(error)
+            ModelBridge.getGenerationError(error).fatal()
         }
     }
 }

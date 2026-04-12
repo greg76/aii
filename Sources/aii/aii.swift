@@ -6,7 +6,7 @@ struct AII: AsyncParsableCommand {
     static var configuration = CommandConfiguration(
         commandName: "aii",
         abstract: "Apple Intelligence Interface — on-device LLM",
-        version: "0.6.0"
+        version: "0.7.0"
     )
 
     @Argument(help: "Prompt (one-shot), or system prompt when used with --interactive")
@@ -18,7 +18,11 @@ struct AII: AsyncParsableCommand {
     @Option(name: [.short, .long], help: "File to attach as context (one-shot only)")
     var file: String?
 
+    @Flag(name: [.short, .long], help: "Output errors as JSONL to stderr")
+    var json: Bool = false
+
     mutating func run() async throws {
+        AIIError.jsonMode = json
         ModelBridge.checkAvailability()
 
         if interactive {

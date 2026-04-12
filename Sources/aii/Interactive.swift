@@ -52,7 +52,8 @@ enum Interactive {
                 }
                 ModelBridge.flushBuffer(&buffer)
             } catch {
-                ModelBridge.mapGenerationError(error)
+                let error = ModelBridge.getGenerationError(error)
+                error.report()
             }
             print()  // blank line after response
         }

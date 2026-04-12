@@ -1,5 +1,5 @@
 # AII — Apple Intelligence Interface
-## Specification v0.6
+## Specification v0.7
 
 AII is a Swift command-line tool that exposes Apple's on-device Foundation
 Models framework directly, with no third-party dependencies beyond
@@ -50,7 +50,7 @@ aii/
 │       ├── OneShot.swift       # one-shot mode
 │       ├── Interactive.swift   # interactive mode
 │       ├── ModelBridge.swift   # Foundation Models API, streaming, buffering
-│       └── Errors.swift        # error types, codes, stderr JSON output
+│       └── Errors.swift        # error types, codes, stderr output (plain text + --json mode)
 └── SPEC.md
 ```
 
@@ -114,6 +114,7 @@ confirmation of the reset without a status message.
 | `prompt` | | positional string | One-shot prompt, or system prompt when combined with `-i` |
 | `--interactive` | `-i` | bool | Interactive conversational mode |
 | `--file` | `-f` | string | Path to a file whose contents are attached as context (one-shot only) |
+| `--json` | `-j` | bool | Output errors as JSONL to stderr instead of plain text |
 | `--version` | | bool | Print version and exit |
 | `--help` | `-h` | bool | Print help and exit |
 
@@ -232,7 +233,17 @@ explicitly enabled and model assets fully downloaded.
 
 ### Error output format
 
-Errors are written to **stderr** as a single JSONL message:
+By default, errors follow established Unix CLI conventions — plain text
+to stderr, prefixed with the tool name, actionable guidance on the next
+line:
+
+```
+aii: Apple Intelligence is not enabled
+aii: enable it in System Settings → Apple Intelligence & Siri
+```
+
+When `--json` is passed (for programmatic/scripted use), errors are
+written to **stderr** as a single JSONL message instead:
 
 ```json
 {
@@ -244,15 +255,30 @@ Errors are written to **stderr** as a single JSONL message:
 
 | Field | Type | Description |
 |---|---|---|
-| `error` | string | Machine-readable error code |
+| `error` | string | Machine-readable error code (see table below) |
 | `message` | string | Human-readable description with actionable guidance |
 | `detail` | string | Underlying Swift API value for diagnostics (optional) |
 
-AII exits with code `1` after writing any error.
+### Exit codes
+
+Exit codes are the primary machine-readable signal in default mode:
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Internal / unexpected error |
+| `2` | Bad input (`file_not_found`, `conflicting_input`) |
+| `3` | Availability error (Apple Intelligence not ready) |
+| `4` | Generation error (guardrail, context, language, rate limit) |
+
+Shell scripts can switch on `$?` to distinguish error categories without
+parsing any output.
 
 ### Error codes
 
-#### Availability errors (checked at startup)
+Used in `--json` mode and as the basis for plain text messages in default mode.
+
+#### Availability errors — exit code 3
 
 | Code | Maps from | Description |
 |---|---|---|
@@ -260,7 +286,7 @@ AII exits with code `1` after writing any error.
 | `unavailable_not_enabled` | `.unavailable(.appleIntelligenceNotEnabled)` | Apple Intelligence not enabled by user |
 | `unavailable_downloading` | `.unavailable(.modelAssetsNotReady)` | Model assets still downloading |
 
-#### Generation errors (during inference)
+#### Generation errors — exit code 4
 
 | Code | Maps from | Description |
 |---|---|---|
@@ -270,13 +296,18 @@ AII exits with code `1` after writing any error.
 | `context_exceeded` | `GenerationError.exceedsContextWindowSize` | Exceeds 4,096 token context window |
 | `rate_limited` | `GenerationError.rateLimited` | Model busy, try again |
 
-#### Input errors
+#### Input errors — exit code 2
 
 | Code | Description |
 |---|---|
 | `file_not_found` | Path provided via `--file` does not exist or is unreadable |
 | `conflicting_input` | Both `--file` and piped stdin were provided |
-| `internal_error` | Unexpected error — detail field contains cause |
+
+#### Internal errors — exit code 1
+
+| Code | Description |
+|---|---|
+| `internal_error` | Unexpected error — plain text or detail field contains cause |
 
 ### Context Window Note
 
@@ -351,7 +382,7 @@ let package = Package(
 
 ---
 
-## Non-Goals (v0.6)
+## Non-Goals (v0.7)
 
 - No persistent history across invocations
 - No support for image or multimodal input
