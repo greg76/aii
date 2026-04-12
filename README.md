@@ -2,7 +2,7 @@
 
 A Swift command-line tool that exposes Apple's on-device Foundation Models
 framework directly from the terminal. No API keys. No cloud. No model
-downloads. No Xcode required.
+downloads. No Xcode required to build.
 
 ---
 
@@ -12,8 +12,8 @@ downloads. No Xcode required.
 - **Pipe as content** — pipe a file or command output as context, provide the instruction as the argument: `cat notes.md | aii "extract action items"`
 - **File attachment** — `--file` attaches a file's contents as context
 - **Interactive mode** — conversational UI with session history, `/new` to reset, `/quit` to exit
-- **System prompt** — pass a positional argument with `-i` to set model persona: `aii -i "you are a pirate"`
-- **Clean error output** — availability and generation errors written to stderr as JSONL with machine-readable codes
+  - **System prompt** — pass a positional argument with `-i` to set model persona: `aii -i "you are a pirate"`
+- **Clean error output** — availability and generation errors written to stderr (optinally also as JSONL with machine-readable codes)
 
 ---
 
