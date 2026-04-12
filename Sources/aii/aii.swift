@@ -25,9 +25,11 @@ struct AII: AsyncParsableCommand {
         AIIError.jsonMode = json
         ModelBridge.checkAvailability()
 
+        let isPiped = isatty(STDIN_FILENO) == 0
+
         if interactive {
             await Interactive.run(systemPrompt: prompt)
-        } else if let prompt {
+        } else if prompt != nil || file != nil || isPiped {
             await OneShot.run(prompt: prompt, filePath: file)
         } else {
             print(AII.helpMessage())

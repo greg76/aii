@@ -2,7 +2,7 @@ import Foundation
 import FoundationModels
 
 enum OneShot {
-    static func run(prompt: String, filePath: String?) async {
+    static func run(prompt: String?, filePath: String?) async {
         // 1. detect if stdin is a pipe
         let isPiped = isatty(STDIN_FILENO) == 0
 
@@ -33,11 +33,25 @@ enum OneShot {
             content = String(data: data, encoding: .utf8)
         }
 
-        // 4. compose and run
-        let finalPrompt = ModelBridge.composePrompt(prompt: prompt, content: content)
         let session = ModelBridge.makeSession(systemPrompt: nil)
         var buffer = ""
         var lastContentCount = 0
+
+        let finalPrompt: String
+        if let content {
+            if let prompt {
+                // Case 3 & 4: content + prompt. Concatenate as per SPEC.md.
+                finalPrompt = ModelBridge.composePrompt(prompt: prompt, content: content)
+            } else {
+                // Case 2: only content.
+                finalPrompt = content
+            }
+        } else if let prompt {
+            // Case 1: only prompt.
+            finalPrompt = prompt
+        } else {
+            return
+        }
 
         do {
             let stream = session.streamResponse(to: finalPrompt)

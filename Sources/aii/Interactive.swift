@@ -54,6 +54,9 @@ enum Interactive {
             } catch {
                 let error = ModelBridge.getGenerationError(error)
                 error.report()
+                if error.error == AIIError.Codes.contextExceeded {
+                    fputs("aii: use /new to start a fresh conversation\n", stderr)
+                }
             }
             print()  // blank line after response
         }

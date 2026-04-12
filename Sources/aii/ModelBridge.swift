@@ -51,7 +51,7 @@ enum ModelBridge {
 
     static func composePrompt(prompt: String, content: String?) -> String {
         guard let content, !content.isEmpty else { return prompt }
-        return "\(prompt)\n\n---\n\(content)"
+        return "\(prompt)\n\n--- CONTENT ---\n\(content)\n--- END CONTENT ---"
     }
 
     static func writeBuffered(_ text: String, buffer: inout String) {
@@ -98,7 +98,7 @@ enum ModelBridge {
         } else if errorStr.contains("exceedsContextWindowSize") {
             return AIIError(
                 error: AIIError.Codes.contextExceeded,
-                message: "Exceeds 4,096 token context window\nuse /new to start a fresh conversation",
+                message: "Exceeds 4,096 token context window",
                 detail: errorStr,
                 exitCode: 4
             )
