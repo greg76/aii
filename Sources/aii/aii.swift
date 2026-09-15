@@ -21,8 +21,9 @@ struct AII: AsyncParsableCommand {
     @Flag(name: [.short, .long], help: "Output errors as JSONL to stderr")
     var json: Bool = false
 
-    @Flag(name: [.short, .long], help: "Display the maximum context size supported.")
-    var max_ctx: Bool = false
+    @Flag(name: [.customShort("m"), .customLong("model-info")],
+          help: "Display information about the on-device model (context size, image input support, supported languages)")
+    var modelInfo: Bool = false
 
     mutating func run() async throws {
         AIIError.jsonMode = json
@@ -34,8 +35,8 @@ struct AII: AsyncParsableCommand {
             await Interactive.run(systemPrompt: prompt)
         } else if prompt != nil || file != nil || isPiped {
             await OneShot.run(prompt: prompt, filePath: file)
-        } else if max_ctx {
-            print("Maximum context size: \(ModelBridge.contextWindowSize)")
+        } else if modelInfo {
+            print(ModelBridge.modelInfoDescription())
         } else {
             print(AII.helpMessage())
         }

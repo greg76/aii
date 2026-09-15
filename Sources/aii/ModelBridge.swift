@@ -54,6 +54,24 @@ enum ModelBridge {
         return 4096
     }
 
+    /// The locales the on-device model supports, as sorted identifier
+    /// strings (e.g. "en-US", "ja-JP").
+    static var supportedLanguages: [String] {
+        SystemLanguageModel.default.supportedLanguages
+            .map { $0.maximalIdentifier }
+            .sorted()
+    }
+
+    static func modelInfoDescription() -> String {
+        let languages = supportedLanguages
+            .map { $0.replacingOccurrences(of: #"-\w+-"#, with: "-", options: .regularExpression) }
+        return [
+            "Context window: \(contextWindowSize) tokens",
+            "Supported languages (\(languages.count)): \(languages.joined(separator: ", "))",
+        ].joined(separator: "\n")
+    }
+
+
     static func makeSession(systemPrompt: String?) -> LanguageModelSession {
         if let prompt = systemPrompt, !prompt.isEmpty {
             return LanguageModelSession(
