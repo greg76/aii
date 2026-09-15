@@ -185,7 +185,7 @@ SDK. After updating the CLT, verify it points to the current SDK:
 ls -la /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
 # should point to MacOSX26.x.sdk, not MacOSX15.x.sdk
 ```
-### Repeated unknown argument: '-target-arch-variant' compile error
+### Repeated `-target-arch-variant` compile error
 
 After updating to macOS27 and the CLT v27.0.0.0.1788430756 the build broke due
 to a new toolchain bug. The host-side compiler invocation SwiftPM uses to build plugins under Xcode 27 is emitting a driver flag that the same-version Swiftly frontend doesn't recognize. ([Skip bumped into the same issue.](https://github.com/skiptools/skip/issues/733)) The resolution is to install Swift 6.4.0, but:
