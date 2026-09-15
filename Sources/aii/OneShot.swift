@@ -54,6 +54,20 @@ enum OneShot {
             return
         }
 
+        // Pre-flight: if the prompt alone already meets or exceeds the context
+        // window, fail immediately with a clear error rather than spending time
+        // invoking the model only to hit exceedsContextWindowSize (or trigger the
+        // repetition detector) partway through generation. `tokenCount(for:)`
+        // requires 26.4+; on older SDKs/OS versions this check is skipped and the
+        // existing reactive handling below still applies.
+        if #available(macOS 26.4, *) {
+            if let promptTokens = try? await SystemLanguageModel.default.tokenCount(for: finalPrompt),
+                promptTokens >= ModelBridge.contextWindowSize
+            {
+                ModelBridge.getPreflightContextError(tokenCount: promptTokens).fatal()
+            }
+        }
+
         do {
             let stream = session.streamResponse(to: finalPrompt)
             for try await partial in stream {

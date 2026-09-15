@@ -42,6 +42,18 @@ enum ModelBridge {
         }
     }
 
+    /// The on-device model's context window, in tokens (input + output combined).
+    /// `SystemLanguageModel.contextSize` was added in the 26.4 SDK and reports the
+    /// real figure for the current device — 4096 on most 26.x devices, 8192 on
+    /// newer 27.x hardware. On older SDKs/OS versions where the property doesn't
+    /// exist yet, fall back to the original fixed constant.
+    static var contextWindowSize: Int {
+        if #available(macOS 26.4, *) {
+            return SystemLanguageModel.default.contextSize
+        }
+        return 4096
+    }
+
     static func makeSession(systemPrompt: String?) -> LanguageModelSession {
         if let prompt = systemPrompt, !prompt.isEmpty {
             return LanguageModelSession(
@@ -113,7 +125,7 @@ enum ModelBridge {
             return AIIError(
                 error: AIIError.Codes.contextExceeded,
                 message:
-                    "Exceeds 4,096 token context window\ntry a shorter input or use /new to reset context in interactive mode",
+                    "Exceeds \(contextWindowSize)-token context window\ntry a shorter input or use /new to reset context in interactive mode",
                 detail: errorStr,
                 exitCode: 4
             )
@@ -138,8 +150,24 @@ enum ModelBridge {
         return AIIError(
             error: AIIError.Codes.contextExceeded,
             message:
-                "Response appears to be repeating — context window likely exceeded\ntry a shorter input, limit expected response length or use /new to reset in interactive mode",
+                "Response appears to be repeating — likely exceeded the \(contextWindowSize)-token context window\ntry a shorter input, limit expected response length or use /new to reset in interactive mode",
             detail: "Detected repeating lines in output",
+            exitCode: 4
+        )
+    }
+
+    /// Pre-flight check for one-shot mode: the composed prompt alone (before any
+    /// response is generated) already meets or exceeds the context window. This
+    /// only catches the "guaranteed to fail" case — it doesn't reserve headroom
+    /// for the response, so a prompt that passes this check can still hit
+    /// `exceedsContextWindowSize` once output is generated. That remaining case
+    /// is still handled reactively via `getGenerationError`/`getRepetitionError`.
+    static func getPreflightContextError(tokenCount: Int) -> AIIError {
+        return AIIError(
+            error: AIIError.Codes.contextExceeded,
+            message:
+                "Input is \(tokenCount) tokens, exceeding the \(contextWindowSize)-token context window\ntry a shorter input or trim --file/stdin content",
+            detail: "Pre-flight token count check failed before calling the model",
             exitCode: 4
         )
     }
@@ -154,11 +182,11 @@ class RepetitionDetector {
         var detected = false
         for char in text {
             currentLine.append(char)
-            
+
             if char == "\n" {
                 let trimmed = currentLine.trimmingCharacters(in: .whitespacesAndNewlines)
                 currentLine = ""
-                
+
                 // Only register lines that are long enough to be meaningful repeats
                 if trimmed.count >= 40 {
                     let fp = getFingerprint(for: trimmed)

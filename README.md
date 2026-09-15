@@ -21,7 +21,7 @@ downloads. No Xcode required to build.
 
 - macOS 26.0 or later (Apple Silicon)
 - Apple Intelligence enabled in System Settings
-- Swift 6.3 via [Swiftly](https://github.com/swiftlang/swiftly) (see Build section)
+- Swift 6.3 or 6.4 via [Swiftly](https://github.com/swiftlang/swiftly) (see Build section)
 
 ---
 
@@ -54,6 +54,7 @@ aii --help
 | `prompt` | | Positional — one-shot prompt, or system prompt with `-i` |
 | `--interactive` | `-i` | Start interactive conversational mode |
 | `--file` | `-f` | Attach file contents as context (one-shot only) |
+| '--max_ctx | -m | Display the maximum context size supported. |
 | `--version` | | Print version and exit |
 | `--help` | `-h` | Print help and exit |
 
@@ -71,8 +72,8 @@ aii --help
 ### 1. Install Swiftly
 
 The Apple Command Line Tools ship a Swift compiler but their SPM (Swift
-Package Manager) has a known manifest compiler bug on macOS 26 — see
-[Learning & Gotchas](#learning--gotchas) below. [Swiftly](https://github.com/swiftlang/swiftly)
+Package Manager) has a known manifest compiler bug on macOS 26 and 27 as well.
+See [Learning & Gotchas](#learning--gotchas) below. [Swiftly](https://github.com/swiftlang/swiftly)
 provides a self-contained Swift toolchain that sidesteps this entirely,
 without requiring a full Xcode installation.
 
@@ -83,11 +84,11 @@ installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
 # follow the prompts — adds swiftly to your PATH
 ```
 
-Then install Swift 6.3:
+Then install Swift 6.3 on macOS26, or Swift 6.4 on macOS27
 
 ```bash
-swiftly install 6.3.0
-swiftly use 6.3.0
+swiftly install 6.4.0
+swiftly use 6.4.0
 ```
 
 Verify:
@@ -112,14 +113,6 @@ make install
 # installs to ~/.local/bin/aii
 ```
 
-Or manually:
-
-```bash
-mkdir -p ~/.local/bin
-cp .build/release/aii ~/.local/bin/aii
-# make sure ~/.local/bin is in your PATH
-```
-
 ---
 
 ## Error Codes
@@ -135,7 +128,7 @@ Errors are written to stderr as JSONL:
 | `unavailable_not_supported` | Device doesn't support Apple Intelligence |
 | `unavailable_not_enabled` | Apple Intelligence not enabled in System Settings |
 | `unavailable_downloading` | Model assets still downloading |
-| `context_exceeded` | Input exceeds 4,096 token context window — use `/new` |
+| `context_exceeded` | Input exceeds the maximum allowed token context window — use `/new` |
 | `guardrail_violation` | Prompt blocked by safety filters |
 | `unsupported_language` | Prompt language not supported by the model |
 | `rate_limited` | Model busy, try again |
@@ -192,6 +185,15 @@ SDK. After updating the CLT, verify it points to the current SDK:
 ls -la /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
 # should point to MacOSX26.x.sdk, not MacOSX15.x.sdk
 ```
+### Repeated unknown argument: '-target-arch-variant' compile error
+
+After updating to macOS27 and the CLT v27.0.0.0.1788430756 the build broke due
+to a new toolchain bug. The host-side compiler invocation SwiftPM uses to build plugins under Xcode 27 is emitting a driver flag that the same-version Swiftly frontend doesn't recognize. ([Skip bumped into the same issue.](https://github.com/skiptools/skip/issues/733)) The resolution is to install Swift 6.4.0, but:
+
+* Swiftly 1.1.3 is broken
+  * You can not use `install 6.4.0` it will complain about non existant pkg.
+  * You can't also use `self-update`, you need to [reinstall Swiftly](https://www.swift.org/install/macos/), to get to v1.1.4
+* Once on Swiftly 1.1.4, you can issue `install 6.4.0` and `use 6.4.0`
 
 If it points to an older SDK, cgo and other C toolchain operations will
 use the wrong headers and frameworks. Updating the CLT via
@@ -199,10 +201,10 @@ use the wrong headers and frameworks. Updating the CLT via
 
 ### Foundation Models context window
 
-The on-device model has a **4,096 token context window** covering both
-input and output combined. In interactive mode, history accumulates with
-each turn and will eventually hit this limit. Use `/new` to start a
-fresh session when this happens.
+Originally the on-device model has a **4,096 token context window** covering both
+input and output combined. This has been expanded on macOS27 devices to 8192.
+In interactive mode, history accumulates with each turn and will eventually hit
+this limit. Use `/new` to start a fresh session when this happens.
 
 ### Prompt quoting
 
@@ -230,9 +232,9 @@ macOS 26. Conversation history is managed internally by
 
 ## Prior Art — apfel
 
-While working on this project we discovered
-[apfel](https://github.com/Arthur-Ficial/apfel) — a polished Swift CLI
-tool that covers very similar ground. Hats off: it's a well-designed,
+While working on this project
+[apfel](https://github.com/Arthur-Ficial/apfel) got published, a polished
+Swift CLI tool that covers a similar ground. Hats off: it's a well-designed,
 actively maintained project that also exposes Apple's Foundation Models
 from the terminal, and its source code was a useful reference for the
 correct Foundation Models API surface.
