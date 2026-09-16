@@ -54,6 +54,24 @@ enum ModelBridge {
         return 4096
     }
 
+    /// The on-device model variant/version backing this instance. Added in
+    /// the macOS 27 SDK (`SystemLanguageModel.variant`) — Apple ships
+    /// distinct model versions tied to OS ranges (26.0–26.3, 26.4, 27.0+),
+    /// so this lets callers detect a change without guessing at a
+    /// fingerprint. On older SDKs/OS versions there's no queryable variant,
+    /// so this falls back to a plain OS-range label instead.
+    static var modelVariant: String {
+        if #available(macOS 27.0, *) {
+            return SystemLanguageModel.default.variant.displayName
+        }
+        // No `variant` API pre-27.0 — approximate using the OS version range
+        // Apple's docs tie to each model generation.
+        if #available(macOS 26.4, *) {
+            return "AFM macOS 26.4"
+        }
+        return "AFM macOS 26.0–26.3"
+    }
+
     /// The locales the on-device model supports, as sorted identifier
     /// strings (e.g. "en-US", "ja-JP").
     static var supportedLanguages: [String] {
@@ -67,6 +85,7 @@ enum ModelBridge {
             .map { $0.replacingOccurrences(of: #"-\w+-"#, with: "-", options: .regularExpression) }
         return [
             "Context window: \(contextWindowSize) tokens",
+            "Model variant: \(modelVariant)",
             "Supported languages (\(languages.count)): \(languages.joined(separator: ", "))",
         ].joined(separator: "\n")
     }
