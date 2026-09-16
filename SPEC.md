@@ -1,5 +1,5 @@
 # AII — Apple Intelligence Interface
-## Specification v0.7
+## Specification v0.8
 
 AII is a Swift command-line tool that exposes Apple's on-device Foundation
 Models framework directly, with no third-party dependencies beyond
