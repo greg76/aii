@@ -54,7 +54,7 @@ aii --help
 | `prompt` | | Positional — one-shot prompt, or system prompt with `-i` |
 | `--interactive` | `-i` | Start interactive conversational mode |
 | `--file` | `-f` | Attach file contents as context (one-shot only) |
-| '--max_ctx | -m | Display the maximum context size supported. |
+| `--model-info` | `-m` | Show context size, model variant, and supported languages |
 | `--version` | | Print version and exit |
 | `--help` | `-h` | Print help and exit |
 

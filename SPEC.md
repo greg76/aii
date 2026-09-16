@@ -115,6 +115,7 @@ confirmation of the reset without a status message.
 | `--interactive` | `-i` | bool | Interactive conversational mode |
 | `--file` | `-f` | string | Path to a file whose contents are attached as context (one-shot only) |
 | `--json` | `-j` | bool | Output errors as JSONL to stderr instead of plain text |
+| `--model-info` | `-m` | Display information about the on-device model (context size, model variant, supported languages) |
 | `--version` | | bool | Print version and exit |
 | `--help` | `-h` | bool | Print help and exit |
 
