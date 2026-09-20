@@ -2,7 +2,7 @@ import Foundation
 import FoundationModels
 
 enum OneShot {
-    static func run(prompt: String?, filePath: String?) async {
+    static func run(prompt: String?, filePath: String?, exec: Bool = false) async {
         // 1. detect if stdin is a pipe
         let isPiped = isatty(STDIN_FILENO) == 0
 
@@ -33,7 +33,9 @@ enum OneShot {
             content = String(data: data, encoding: .utf8)
         }
 
-        let session = ModelBridge.makeSession(systemPrompt: nil)
+        // Exec mode: load the rule store once at startup.
+        let tool: RunCommandTool? = exec ? await RunCommandTool.makeDefault() : nil
+        let session = ModelBridge.makeSession(systemPrompt: nil, exec: tool)
         var buffer = ""
         var lastContentCount = 0
         let detector = RepetitionDetector()
@@ -72,18 +74,20 @@ enum OneShot {
             let stream = session.streamResponse(to: finalPrompt)
             for try await partial in stream {
                 let currentContent = partial.content
+                // After a tool call the snapshot may restart; begin a new segment.
+                if exec && currentContent.count < lastContentCount { lastContentCount = 0 }
                 if currentContent.count > lastContentCount {
                     let startIndex = currentContent.index(
                         currentContent.startIndex, offsetBy: lastContentCount)
                     let delta = String(currentContent[startIndex...])
-                    if ModelBridge.writeBuffered(delta, buffer: &buffer, detector: detector) {
+                    if ModelBridge.emit(delta, buffer: &buffer, detector: detector, immediate: exec) {
                         ModelBridge.getRepetitionError().fatal()
                     }
                     lastContentCount = currentContent.count
                 }
             }
             ModelBridge.flushBuffer(&buffer)
-            print()  // Newline after completion
+            ModelBridge.endResponse(immediate: exec)  // Newline after completion
         } catch {
             ModelBridge.getGenerationError(error).fatal()
         }

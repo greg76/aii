@@ -12,3 +12,6 @@ uninstall:
 
 clean:
 	rm -rf .build
+
+test:
+	$(SWIFT) test

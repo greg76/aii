@@ -13,6 +13,7 @@ downloads. No Xcode required to build.
 - **File attachment** — `--file` attaches a file's contents as context
 - **Interactive mode** — conversational UI with session history, `/new` to reset, `/quit` to exit
   - **System prompt** — pass a positional argument with `-i` to set model persona: `aii -i "you are a pirate"`
+- **Command execution** — opt-in `--exec` lets the model run programs on your Mac, with approval
 - **Clean error output** — availability and generation errors written to stderr (optinally also as JSONL with machine-readable codes)
 
 ---
@@ -42,6 +43,9 @@ cat error.log | aii "what is causing this error?"
 aii -i
 aii -i "you are a helpful rubber duck"
 
+# let the model run programs (asks before anything not allowlisted)
+aii -x "how much free disk space do I have?"
+
 # version / help
 aii --version
 aii --help
@@ -54,7 +58,11 @@ aii --help
 | `prompt` | | Positional — one-shot prompt, or system prompt with `-i` |
 | `--interactive` | `-i` | Start interactive conversational mode |
 | `--file` | `-f` | Attach file contents as context (one-shot only) |
+| `--json` | `-j` | Output errors as JSONL to stderr |
 | `--model-info` | `-m` | Show context size, model variant, and supported languages |
+| `--exec` | `-x` | Let the model run programs via the `run_command` tool |
+| `--list-allowed` | | Print the effective exec allowlist and exit |
+| `--reset-allowed` | | Delete the exec allowlist config file and exit |
 | `--version` | | Print version and exit |
 | `--help` | `-h` | Print help and exit |
 
@@ -64,6 +72,25 @@ aii --help
 |---|---|
 | `/new` | Clear history and reset the screen |
 | `/quit` or `/exit` | Exit |
+
+---
+
+## Command execution
+
+With `--exec` / `-x` the model gets one tool, `run_command`, and can act on
+your Mac instead of only showing a command in a code block. There is no
+shell: the model supplies a program and an argument array, so pipes,
+redirects and wildcards do not work.
+
+Commands matching the allowlist (`~/.config/aii/allow`, or read-only built-in
+defaults until that file exists) run silently, with a log line on stderr.
+Anything else prompts on `/dev/tty` with the exact command; `y` runs it once,
+`a` adds a narrow prefix to the allowlist, anything else denies. With no
+terminal available, non-allowlisted commands are denied. There is no
+auto-approve flag, by design, and this is a guardrail, not a sandbox.
+
+Commands time out after 30 s and output is capped at 2048 bytes. See
+[`SPEC-EXEC.md`](SPEC-EXEC.md) for the full design and threat model.
 
 ---
 
@@ -133,7 +160,7 @@ Errors are written to stderr as JSONL:
 | `unsupported_language` | Prompt language not supported by the model |
 | `rate_limited` | Model busy, try again |
 | `file_not_found` | `--file` path doesn't exist or isn't readable |
-| `conflicting_input` | Both `--file` and piped stdin provided |
+| `conflicting_input` | Both `--file` and piped stdin provided, or a management flag combined with other flags |
 
 ---
 

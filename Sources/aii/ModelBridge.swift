@@ -91,7 +91,19 @@ enum ModelBridge {
     }
 
 
-    static func makeSession(systemPrompt: String?) -> LanguageModelSession {
+    /// With `exec` set, the session gets the `run_command` tool and the exec
+    /// instructions (SPEC-EXEC Section 8): the user's system prompt first, a
+    /// blank line, then the exec text. Without `exec` behaviour is unchanged.
+    static func makeSession(systemPrompt: String?, exec: RunCommandTool? = nil)
+        -> LanguageModelSession
+    {
+        if let exec {
+            var text = Exec.instructions + " " + Exec.environmentNote()
+            if let prompt = systemPrompt, !prompt.isEmpty {
+                text = prompt + "\n\n" + text
+            }
+            return LanguageModelSession(tools: [exec], instructions: Instructions(text))
+        }
         if let prompt = systemPrompt, !prompt.isEmpty {
             return LanguageModelSession(
                 instructions: Instructions(prompt)
@@ -125,6 +137,29 @@ enum ModelBridge {
         }
 
         return detected
+    }
+
+    /// Exec mode: no buffering; every delta goes through `StdoutState` so a tool
+    /// running in another task knows whether output ends at a line start.
+    static func writeImmediate(_ text: String, detector: RepetitionDetector? = nil) -> Bool {
+        let detected = detector?.detectRepetition(in: text) ?? false
+        StdoutState.shared.write(text)
+        if detected { StdoutState.shared.write("...\n") }
+        return detected
+    }
+
+    /// Dispatches to buffered or immediate output. Returns true on repetition.
+    static func emit(
+        _ text: String, buffer: inout String, detector: RepetitionDetector, immediate: Bool
+    ) -> Bool {
+        immediate
+            ? writeImmediate(text, detector: detector)
+            : writeBuffered(text, buffer: &buffer, detector: detector)
+    }
+
+    /// The newline that ends a response.
+    static func endResponse(immediate: Bool) {
+        if immediate { StdoutState.shared.write("\n") } else { print() }
     }
 
     static func flushBuffer(_ buffer: inout String) {

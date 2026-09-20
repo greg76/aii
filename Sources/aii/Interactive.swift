@@ -7,9 +7,11 @@ enum Interactive {
         Type /new to reset, /quit to exit.
         """
 
-    static func run(systemPrompt: String?) async {
+    static func run(systemPrompt: String?, exec: Bool = false) async {
         printHeader()
-        var session = ModelBridge.makeSession(systemPrompt: systemPrompt)
+        // Exec mode: load the rule store once; approvals persist across /new.
+        let tool: RunCommandTool? = exec ? await RunCommandTool.makeDefault() : nil
+        var session = ModelBridge.makeSession(systemPrompt: systemPrompt, exec: tool)
 
         while true {
             // print prompt prefix
@@ -25,7 +27,7 @@ enum Interactive {
             case "/quit", "/exit":
                 exit(0)
             case "/new":
-                session = ModelBridge.makeSession(systemPrompt: systemPrompt)
+                session = ModelBridge.makeSession(systemPrompt: systemPrompt, exec: tool)
                 clearScreen()
                 printHeader()
                 continue
@@ -43,11 +45,15 @@ enum Interactive {
                 let stream = session.streamResponse(to: input)
                 for try await partial in stream {
                     let currentContent = partial.content
+                    // After a tool call the snapshot may restart; begin a new segment.
+                    if exec && currentContent.count < lastContentCount { lastContentCount = 0 }
                     if currentContent.count > lastContentCount {
                         let startIndex = currentContent.index(
                             currentContent.startIndex, offsetBy: lastContentCount)
                         let delta = String(currentContent[startIndex...])
-                        if ModelBridge.writeBuffered(delta, buffer: &buffer, detector: detector) {
+                        if ModelBridge.emit(
+                            delta, buffer: &buffer, detector: detector, immediate: exec)
+                        {
                             ModelBridge.getRepetitionError().report()
                             break
                         }
@@ -62,7 +68,7 @@ enum Interactive {
                     fputs("aii: use /new to start a fresh conversation\n", stderr)
                 }
             }
-            print()  // blank line after response
+            ModelBridge.endResponse(immediate: exec)  // blank line after response
         }
     }
 
