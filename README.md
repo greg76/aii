@@ -128,7 +128,7 @@ swift --version      # should show Swift 6.3
 ### 2. Build
 
 ```bash
-git clone https://github.com/yourusername/aii.git
+git clone https://github.com/greg76/aii.git
 cd aii
 swift build -c release
 ```
